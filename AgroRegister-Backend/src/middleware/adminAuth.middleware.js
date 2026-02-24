@@ -1,37 +1,46 @@
 import jwt from "jsonwebtoken";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandeler.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
+import Admin from "../models/admin.model.js";
 
 const adminAuth = asyncHandler(async (req, res, next) => {
-  try {
-    const token =
-      req.cookies?.adminToken ||
-      req.header("Authorization")?.replace("Bearer ", "");
+  const token =
+    req.cookies?.accessToken ||
+    req.header("Authorization")?.replace("Bearer ", "");
 
-    if (!token) {
-      throw new ApiError(401, "Not Authorized. Please login again.");
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (decoded.email !== process.env.ADMIN_EMAIL) {
-      throw new ApiError(403, "Access Denied: Invalid Admin Credentials");
-    }
-
-    req.admin = decoded;
-
-    next();
-  } catch (error) {
-    console.error("Admin Auth Error:", error.message);
-
-    const statusCode = error.statusCode || 401;
-    const message = error.message || "Invalid or Expired Token";
-
-    return res
-      .status(statusCode)
-      .json(new ApiResponse(statusCode, null, message));
+  if (!token) {
+    throw new ApiError(401, "Not authorized. Please login again.");
   }
+
+  let decoded;
+
+  try {
+    decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+  } catch (err) {
+    throw new ApiError(401, "Invalid or expired token");
+  }
+
+  const admin = await Admin.findByPk(decoded.id);
+
+  if (!admin) {
+    throw new ApiError(401, "Admin not found");
+  }
+
+  // Optional: check refresh token match (extra security)
+
+  const hashedIncomingRefreshToken = admin.hashToken(req.cookies?.refreshToken);
+
+  if (admin.refreshToken !== hashedIncomingRefreshToken) {
+    throw new ApiError(401, "Session expired");
+  }
+
+  // if (admin.refreshToken !== req.cookies?.refreshToken) {
+  //   throw new ApiError(401, "Session expired");
+  // }
+
+  req.admin = admin;
+
+  next();
 });
 
 export default adminAuth;

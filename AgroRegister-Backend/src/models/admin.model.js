@@ -2,6 +2,7 @@ import { DataTypes, Model } from "sequelize";
 import bcrypt from "bcryptjs";
 import sequelize from "../db/connection.js";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 const Admin = sequelize.define(
   "Admin",
@@ -45,17 +46,28 @@ const Admin = sequelize.define(
   },
 );
 
-// ===== PASSWORD HASH =====
+/* ================= PASSWORD HASHING ================= */
+
 Admin.beforeCreate(async (admin) => {
-  admin.password = await bcrypt.hash(admin.password, 10);
+  const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
+  admin.password = await bcrypt.hash(admin.password, saltRounds);
 });
 
-// ===== COMPARE PASSWORD =====
+Admin.beforeUpdate(async (admin) => {
+  if (admin.changed("password")) {
+    const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 12;
+    admin.password = await bcrypt.hash(admin.password, saltRounds);
+  }
+});
+
+/* ================= PASSWORD VALIDATION ================= */
+
 Admin.prototype.isPasswordCorrect = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-// ===== ACCESS TOKEN =====
+/* ================= ACCESS TOKEN ================= */
+
 Admin.prototype.generateAccessToken = function () {
   return jwt.sign(
     {
@@ -66,12 +78,13 @@ Admin.prototype.generateAccessToken = function () {
     },
     process.env.ACCESS_TOKEN_SECRET,
     {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY || "1d",
     },
   );
 };
 
-// ===== REFRESH TOKEN =====
+/* ================= REFRESH TOKEN ================= */
+
 Admin.prototype.generateRefreshToken = function () {
   return jwt.sign(
     {
@@ -79,9 +92,15 @@ Admin.prototype.generateRefreshToken = function () {
     },
     process.env.REFRESH_TOKEN_SECRET,
     {
-      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "10d",
     },
   );
+};
+
+/* ================= HASH TOKEN (IMPORTANT) ================= */
+
+Admin.prototype.hashToken = function (token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
 };
 
 export default Admin;

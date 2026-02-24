@@ -28,6 +28,7 @@ const Farmer = sequelize.define(
     adharNo: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: true,
     },
 
     mobile: {
@@ -57,7 +58,20 @@ const Farmer = sequelize.define(
       allowNull: false,
     },
 
-    // Razorpay
+    // ===== NEW ADDED FIELDS =====
+
+    adharFrontImg: {
+      type: DataTypes.STRING, // Cloudinary URL
+      allowNull: true,
+    },
+
+    adharBackImg: {
+      type: DataTypes.STRING, // Cloudinary URL
+      allowNull: true,
+    },
+
+    // ===== Razorpay =====
+
     orderId: {
       type: DataTypes.STRING,
     },
@@ -71,6 +85,7 @@ const Farmer = sequelize.define(
       defaultValue: false,
     },
 
+    // Certificate Cloudinary URL
     certificatePath: {
       type: DataTypes.STRING,
     },
